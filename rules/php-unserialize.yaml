@@ -1,0 +1,15 @@
+rules:
+
+- id: php-dangerous-unserialize
+
+  languages:
+  - php
+
+  message:
+    Dangerous unserialize usage
+
+  severity: ERROR
+
+
+  pattern:
+    unserialize(...)

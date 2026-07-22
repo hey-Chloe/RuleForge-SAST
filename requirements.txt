@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pydantic
+GitPython
+PyYAML
+semgrep
+python-dotenv
+sqlalchemy
+pytest
+httpx
