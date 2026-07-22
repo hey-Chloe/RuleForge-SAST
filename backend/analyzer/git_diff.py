@@ -22,12 +22,10 @@ def get_commit_diff(
 
 if __name__ == "__main__":
 
-
     result = get_commit_diff(
-        "../../",
+        ".",
         "HEAD~1",
         "HEAD"
     )
-
 
     print(result)

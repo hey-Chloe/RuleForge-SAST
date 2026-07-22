@@ -22,9 +22,14 @@ def scan(code_path, rule_path):
         encoding="utf-8"
     )
 
-
     if result.returncode != 0:
-        raise Exception(result.stderr)
+        print("STDOUT:")
+        print(result.stdout)
+
+        print("STDERR:")
+        print(result.stderr)
+
+        raise Exception("Semgrep scan failed")
 
 
     data = json.loads(result.stdout)
@@ -45,3 +50,13 @@ def scan(code_path, rule_path):
     return {
         "vulnerabilities": vulnerabilities
     }
+
+
+
+# 给 Patch Verification 使用
+def run_semgrep(code_path, rule_path):
+
+    return scan(
+        code_path,
+        rule_path
+    )
