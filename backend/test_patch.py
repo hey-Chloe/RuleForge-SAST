@@ -3,13 +3,13 @@ from analyzer.patch_verify import verify_patch
 
 result = verify_patch(
 
-    "../",
+    "./target_repo",
 
-    "cf5eef6",
+    "5c2ef4e",
 
-    "243a1d8",
+    "f565423",
 
-    "../testcase",
+    "./target_repo/testcase",
 
     "../rules/php-unserialize.yaml"
 
