@@ -274,10 +274,33 @@ semgrep --version
 
 ---
 
-# 使用方法
 
+## 快速开始
 
-## 1. Semgrep 直接扫描
+### 1. 准备检测代码
+
+将待检测源码放入 `testcase` 目录。
+
+示例：
+
+```text
+testcase/
+└── test.php
+```
+
+当前项目提供 PHP 反序列化漏洞测试样例：
+
+```php
+<?php
+
+unserialize($_GET["cmd"]);
+
+?>
+```
+
+---
+
+### 2. 执行 Semgrep 扫描
 
 执行：
 
@@ -287,48 +310,25 @@ semgrep scan \
 testcase
 ```
 
+---
 
-输出：
+### 3. 查看扫描结果
 
-```
+如果检测到漏洞，将输出：
+
+```text
 1 Code Finding
-```
 
-
-示例：
-
-```
 testcase/test.php
 
 Dangerous unserialize usage
 ```
 
----
+扫描结果包含：
 
-## 2. 使用 RuleForge 封装扫描
-
-
-执行：
-
-```bash
-python backend/engine/test_runner.py
-```
-
-
-输出：
-
-```json
-{
-    "vulnerabilities": [
-        {
-            "rule": "rules.php-dangerous-unserialize",
-            "file": "test.php",
-            "line": 3
-        }
-    ]
-}
-```
-
+- 检测规则：`php-dangerous-unserialize`
+- 漏洞文件：`testcase/test.php`
+- 漏洞类型：PHP Dangerous unserialize
 ---
 
 # 技术栈
