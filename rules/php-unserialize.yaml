@@ -1,15 +1,16 @@
 rules:
+  - id: php-dangerous-unserialize
+    languages:
+      - php
+    message: Dangerous unserialize usage
+    severity: ERROR
 
-- id: php-dangerous-unserialize
-
-  languages:
-  - php
-
-  message:
-    Dangerous unserialize usage
-
-  severity: ERROR
-
-
-  pattern:
-    unserialize(...)
+    patterns:
+      - pattern: unserialize($X)
+      - pattern-not: |
+          unserialize(
+            $X,
+            [
+              "allowed_classes" => false
+            ]
+          )
