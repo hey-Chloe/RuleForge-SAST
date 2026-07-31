@@ -1,51 +1,119 @@
 # RuleForge-SAST
 
-## 代码安全扫描工具
+## 基于 Semgrep 的轻量级静态应用安全测试平台（SAST）
 
-一个基于 **Semgrep** 的轻量级静态应用安全检测工具（SAST）。
+RuleForge-SAST 是一个面向代码安全审计场景的静态分析工具。
 
-RuleForge-SAST 通过自定义安全规则实现代码漏洞检测，并结合 **Git Diff 分析** 与 **Patch 修复验证流程**，对漏洞修复效果进行自动化验证。
+通过 Semgrep 规则引擎实现漏洞检测，并结合 Git Diff 分析和 Patch Verification（修复验证）流程，实现漏洞发现、代码修改分析以及修复效果自动验证闭环。
+
+目前支持 PHP 安全漏洞检测，并提供结构化漏洞结果输出。
 
 ---
 
-# 项目背景
+# 项目介绍
 
-在实际软件开发过程中，安全漏洞往往隐藏在代码提交过程中。
+在实际软件开发过程中，漏洞通常隐藏在代码提交和迭代过程中。
 
-传统漏洞检测工具通常只能发现问题，但无法判断：
+传统人工代码审计存在：
 
-- 漏洞是否已经修复
-- 修复代码是否有效
-- 修改前后漏洞数量变化
+- 审计效率低
+- 容易遗漏漏洞
+- 难以持续验证修复效果
 
-因此，本项目尝试构建一个简单的 SAST 检测闭环：
+因此，本项目尝试构建一个轻量级 SAST 工具，实现：
 
 ```
-源代码
-  ↓
-安全规则匹配
-  ↓
-漏洞检测
-  ↓
-Git Diff 分析
-  ↓
-Patch 修复验证
-  ↓
-输出检测结果
+源码
+ |
+ ↓
+安全规则检测
+ |
+ ↓
+漏洞结果输出
+ |
+ ↓
+Git Diff分析
+ |
+ ↓
+Patch修复验证
+ |
+ ↓
+漏洞修复确认
+```
+
+---
+
+# Features
+
+- [x] 基于 Semgrep 自定义漏洞检测规则
+- [x] PHP 安全漏洞静态扫描
+- [x] JSON 格式漏洞结果输出
+- [x] Git Commit Diff 分析
+- [x] Patch 自动化修复验证
+- [ ] Web 可视化扫描界面（开发中）
+- [ ] AI 漏洞分析与修复建议（规划中）
+
+---
+
+# 项目架构
+
+```
+                 User Code
+                     |
+                     |
+              RuleForge-SAST
+                     |
+        ----------------------------
+        |                          |
+ Semgrep Detection Engine      Git Analyzer
+        |                          |
+   Rule YAML Files          Patch Verification
+        |
+        |
+ Vulnerability Report(JSON)
+```
+
+---
+
+# 项目结构
+
+```
+RuleForge-SAST
+
+├── backend
+│   ├── engine
+│   │   └── semgrep_runner.py
+│   │
+│   ├── analyzer
+│   │   ├── git_diff.py
+│   │   ├── evaluator.py
+│   │   └── patch_verify.py
+│   │
+│   └── main.py
+│
+├── rules
+│   └── php-unserialize.yaml
+│
+├── testcase
+│   └── test.php
+│
+├── reports
+│   └── result.json
+│
+├── requirements.txt
+│
+└── README.md
 ```
 
 ---
 
 # 核心功能
 
-## 1. 自定义漏洞规则
+## 1. 自定义漏洞规则检测
 
-基于 Semgrep YAML 规则实现漏洞检测。
+基于 Semgrep YAML Rule 实现漏洞检测。
 
-当前支持：
-
-- PHP 危险反序列化检测
-
+例如 PHP 反序列化漏洞：
 
 危险代码：
 
@@ -57,44 +125,62 @@ unserialize($_GET["cmd"]);
 ?>
 ```
 
+检测规则：
+
+```yaml
+rules:
+  - id: php-dangerous-unserialize
+    languages:
+      - php
+    message: Dangerous unserialize usage
+    severity: ERROR
+```
+
 检测结果：
 
 ```
-Dangerous unserialize usage
+Rule:
+php-dangerous-unserialize
+
+File:
+test.php
+
+Line:
+3
 ```
 
 ---
 
-## 2. 安全规则误报过滤
+## 2. 降低误报检测
 
-针对安全修复代码进行排除。
+针对安全写法进行排除。
 
 例如：
 
 ```php
 unserialize(
-    $_GET["cmd"],
+    $data,
     [
         "allowed_classes" => false
     ]
 );
 ```
 
-该写法不会被检测为危险反序列化。
+通过：
 
-实现：
-
-```
+```yaml
 pattern-not
 ```
 
-用于降低安全扫描误报。
+排除安全场景。
+
+减少静态扫描误报。
 
 ---
 
-## 3. Semgrep 结果封装
+## 3. JSON漏洞结果输出
 
-将 Semgrep 原始 JSON 结果转换为统一格式：
+扫描结果结构化输出：
 
 ```json
 {
@@ -110,16 +196,15 @@ pattern-not
 
 方便后续接入：
 
-- Web 管理页面
-- 漏洞报告模块
-- AI 分析模块
+- Web管理平台
+- 漏洞报告系统
+- AI分析模块
 
 ---
 
 ## 4. Git Diff 分析
 
-支持分析代码提交前后的变化。
-
+针对代码提交变化进行分析。
 
 示例：
 
@@ -129,57 +214,72 @@ pattern-not
 unserialize($_GET["cmd"]);
 ```
 
-
 修改后：
 
 ```php
 unserialize(
     $_GET["cmd"],
     [
-        "allowed_classes" => false
+        "allowed_classes"=>false
     ]
 );
 ```
 
+通过 Git Diff 获取：
 
-输出：
-
-```
+```diff
 - unserialize($_GET["cmd"]);
 
-+ allowed_classes=false
++ unserialize(
++ $_GET["cmd"],
++ ["allowed_classes"=>false]
++ );
 ```
 
 ---
 
 ## 5. Patch 修复验证
 
-自动验证漏洞修复是否有效。
-
+自动判断漏洞是否修复。
 
 流程：
 
 ```
 旧版本代码
-    ↓
+
+      |
+      ↓
+
 Semgrep扫描
-    ↓
-应用Patch
-    ↓
-新版代码
-    ↓
-Semgrep扫描
-    ↓
+
+      |
+      ↓
+
+代码修复
+
+      |
+      ↓
+
+再次扫描
+
+      |
+      ↓
+
 结果对比
 ```
 
-
 示例：
 
-漏洞数量：
+修复前：
 
 ```
-1 → 0
+Findings: 1
+```
+
+修复后：
+
+```
+Findings: 0
 ```
 
 结果：
@@ -190,81 +290,51 @@ FIXED
 
 ---
 
-# 项目结构
+# Supported Vulnerabilities
 
-```
-RuleForge-SAST
-│
-├── backend
-│   │
-│   ├── engine
-│   │   └── semgrep_runner.py
-│   │
-│   ├── analyzer
-│   │   ├── git_diff.py
-│   │   ├── evaluator.py
-│   │   └── patch_verify.py
-│   │
-│   └── test_runner.py
-│
-├── rules
-│   └── php-unserialize.yaml
-│
-├── testcase
-│   └── test.php
-│
-├── requirements.txt
-│
-└── README.md
-```
+|漏洞类型|语言|检测方式|
+|-|-|-|
+|PHP Unsafe Deserialization|PHP|Semgrep AST Rule|
 
 ---
 
-# 环境准备
+# Roadmap
 
-支持：
+未来计划：
 
-- Windows
-- Linux
-
-
-Python：
-
-```
-Python >= 3.10
-```
-
-
-检查：
-
-```bash
-python --version
-```
+- [ ] 增加 SQL Injection 检测规则
+- [ ] 增加 Command Injection 检测规则
+- [ ] 增加文件上传漏洞检测
+- [ ] 增加 SSRF 检测
+- [ ] 增加 Web 可视化管理界面
+- [ ] 接入 LLM 自动漏洞分析
+- [ ] 自动生成漏洞修复建议
 
 ---
 
-# 安装依赖
+# Installation
 
-进入项目目录：
+## 1. Clone项目
 
 ```bash
+git clone https://github.com/hey-Chloe/RuleForge-SAST.git
+
 cd RuleForge-SAST
 ```
 
+---
 
-安装依赖：
+## 2. 安装Python依赖
 
 ```bash
 pip install -r requirements.txt
 ```
-
 
 安装 Semgrep：
 
 ```bash
 pip install semgrep
 ```
-
 
 检查：
 
@@ -274,35 +344,9 @@ semgrep --version
 
 ---
 
+# Usage
 
-## 快速开始
-
-### 1. 准备检测代码
-
-将待检测源码放入 `testcase` 目录。
-
-示例：
-
-```text
-testcase/
-└── test.php
-```
-
-当前项目提供 PHP 反序列化漏洞测试样例：
-
-```php
-<?php
-
-unserialize($_GET["cmd"]);
-
-?>
-```
-
----
-
-### 2. 执行 Semgrep 扫描
-
-执行：
+## 1. Semgrep扫描
 
 ```bash
 semgrep scan \
@@ -312,89 +356,112 @@ testcase
 
 ---
 
-### 3. 查看扫描结果
+## 2. RuleForge扫描
 
-如果检测到漏洞，将输出：
-
-```text
-1 Code Finding
-
-testcase/test.php
-
-Dangerous unserialize usage
+```bash
+python backend/main.py scan testcase
 ```
 
-扫描结果包含：
+输出：
 
-- 检测规则：`php-dangerous-unserialize`
-- 漏洞文件：`testcase/test.php`
-- 漏洞类型：PHP Dangerous unserialize
+```
+RuleForge-SAST
+
+开始扫描...
+
+发现漏洞:
+
+规则:
+php-dangerous-unserialize
+
+文件:
+test.php
+
+行号:
+3
+```
+
 ---
 
-# 技术栈
+## 3. 查看JSON报告
+
+扫描完成后：
+
+```
+reports/result.json
+```
+
+示例：
+
+```json
+{
+    "rule":"php-dangerous-unserialize",
+    "file":"test.php",
+    "line":3
+}
+```
+
+---
+
+# Demo
+
+## 扫描结果
+
+放置截图：
+
+```
+docs/
+├── scan.png
+├── result.png
+└── architecture.png
+```
+
+展示：
+
+![scan](docs/scan.png)
+
+![result](docs/result.png)
+
+---
+
+# Tech Stack
+
+## Backend
 
 - Python
+- FastAPI
 - Semgrep
 - GitPython
-- FastAPI
-- YAML规则
 
+## Security
 
----
+- SAST
+- AST Pattern Matching
+- Vulnerability Detection
+- Patch Verification
 
-# 后续计划
+## Frontend（规划）
 
-## 增加漏洞规则
-
-计划支持：
-
-- SQL注入
-- 文件上传
-- 命令执行
-- SSRF
-
+- Vue3
+- Vite
+- Axios
 
 ---
 
-## LLM 辅助分析
+# Project Goals
 
-结合大语言模型：
+通过 RuleForge-SAST 学习并实践：
 
-实现：
-
-- 漏洞原因分析
-- 利用方式说明
-- 修复建议自动生成
-
-
----
-
-## Web 管理平台
-
-提供：
-
-- 在线代码扫描
-- 漏洞报告展示
-- Patch 修复验证
-
+- 静态应用安全测试（SAST）
+- 安全规则编写
+- 自动化漏洞检测
+- Git代码审计流程
+- 漏洞修复验证
 
 ---
 
-# 项目定位
+# Author
 
-RuleForge-SAST 是一个面向代码安全分析的轻量级 SAST 平台。
+hey-Chloe
 
-
-目标：
-
-```
-代码输入
-    ↓
-安全规则扫描
-    ↓
-漏洞发现
-    ↓
-AI漏洞解释
-    ↓
-自动修复验证
-```
+Security Engineering Learning Project
