@@ -1,0 +1,10 @@
+rules:
+  - id: php-file-inclusion
+    languages: [php]
+    message: User controlled input may be used in file inclusion.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: include $FILE
+          - pattern: require $FILE
+          - pattern: include_once $FILE

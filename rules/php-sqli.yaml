@@ -1,0 +1,9 @@
+rules:
+  - id: php-sql-injection
+    languages: [php]
+    message: Possible SQL Injection vulnerability.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: mysqli_query(...)
+          - pattern: mysql_query(...)

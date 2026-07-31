@@ -1,0 +1,11 @@
+rules:
+  - id: php-command-injection
+    languages: [php]
+    message: User controlled input may reach command execution function.
+    severity: ERROR
+    patterns:
+      - pattern-either:
+          - pattern: system(...)
+          - pattern: exec(...)
+          - pattern: shell_exec(...)
+          - pattern: passthru(...)
