@@ -1,17 +1,33 @@
 <script setup lang="ts">
+import type { AppView } from '../types/dashboard'
+
 interface NavigationItem {
   label: string
   icon: 'dashboard' | 'scan' | 'shield' | 'rules' | 'report'
-  available: boolean
+  page: AppView | null
 }
 
+const props = defineProps<{
+  activeView: AppView
+}>()
+
+const emit = defineEmits<{
+  navigate: [view: AppView]
+}>()
+
 const navigation: NavigationItem[] = [
-  { label: 'Dashboard', icon: 'dashboard', available: true },
-  { label: 'Scans', icon: 'scan', available: false },
-  { label: 'Vulnerabilities', icon: 'shield', available: false },
-  { label: 'Rules', icon: 'rules', available: false },
-  { label: 'Reports', icon: 'report', available: false },
+  { label: 'Dashboard', icon: 'dashboard', page: 'dashboard' },
+  { label: 'Scans', icon: 'scan', page: null },
+  { label: 'Vulnerabilities', icon: 'shield', page: 'vulnerabilities' },
+  { label: 'Rules', icon: 'rules', page: null },
+  { label: 'Reports', icon: 'report', page: null },
 ]
+
+function navigate(item: NavigationItem): void {
+  if (item.page && item.page !== props.activeView) {
+    emit('navigate', item.page)
+  }
+}
 </script>
 
 <template>
@@ -30,10 +46,12 @@ const navigation: NavigationItem[] = [
         v-for="item in navigation"
         :key="item.label"
         class="nav-item"
-        :class="{ active: item.available }"
-        :disabled="!item.available"
-        :title="item.available ? item.label : `${item.label} 将在后续阶段开放`"
+        :class="{ active: item.page === activeView }"
+        :disabled="item.page === null"
+        :aria-current="item.page === activeView ? 'page' : undefined"
+        :title="item.page ? item.label : `${item.label} 将在后续阶段开放`"
         type="button"
+        @click="navigate(item)"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path v-if="item.icon === 'dashboard'" d="M4 4h6v6H4V4Zm10 0h6v10h-6V4ZM4 14h6v6H4v-6Zm10 4h6v2h-6v-2Z" />
@@ -43,7 +61,7 @@ const navigation: NavigationItem[] = [
           <path v-else d="M6 3h9l3 3v15H6V3Zm8 1v4h4M9 12h6M9 16h6" />
         </svg>
         <span>{{ item.label }}</span>
-        <span v-if="!item.available" class="soon">Soon</span>
+        <span v-if="item.page === null" class="soon">Soon</span>
       </button>
     </nav>
 
@@ -263,4 +281,3 @@ const navigation: NavigationItem[] = [
   }
 }
 </style>
-

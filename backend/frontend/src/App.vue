@@ -1,18 +1,28 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import AppSidebar from './components/AppSidebar.vue'
 import { projectSummary } from './data/dashboardMock'
+import type { AppView } from './types/dashboard'
 import DashboardView from './views/DashboardView.vue'
+import VulnerabilitiesView from './views/VulnerabilitiesView.vue'
+
+const activeView = ref<AppView>('dashboard')
+
+function navigate(view: AppView): void {
+  activeView.value = view
+}
 </script>
 
 <template>
   <div class="app-shell">
-    <AppSidebar />
+    <AppSidebar :active-view="activeView" @navigate="navigate" />
 
     <div class="app-workspace">
       <AppHeader :project="projectSummary" />
       <main class="app-main">
-        <DashboardView />
+        <DashboardView v-if="activeView === 'dashboard'" />
+        <VulnerabilitiesView v-else />
       </main>
     </div>
   </div>
