@@ -2,6 +2,14 @@ import subprocess
 import json
 import os
 
+try:
+    from backend.models.vulnerability import Vulnerability
+    from backend.rules.metadata_parser import parse_metadata
+except ModuleNotFoundError:
+    # Support the existing entry points that run with backend as the import root.
+    from models.vulnerability import Vulnerability
+    from rules.metadata_parser import parse_metadata
+
 
 def scan(code_path, rule_path):
     """
@@ -21,11 +29,15 @@ def scan(code_path, rule_path):
         "--json"
     ]
 
+    environment = os.environ.copy()
+    environment.setdefault("PYTHONUTF8", "1")
+
     result = subprocess.run(
         command,
         capture_output=True,
         text=True,
-        encoding="utf-8"
+        encoding="utf-8",
+        env=environment
     )
 
 
@@ -48,20 +60,38 @@ def scan(code_path, rule_path):
 
     for item in data.get("results", []):
 
-        vulnerabilities.append({
+        metadata = parse_metadata(item)
+        rule_id = item.get("check_id") or metadata["rule_id"]
+        extra = item.get("extra", {})
+        if not isinstance(extra, dict):
+            extra = {}
+
+        vulnerabilities.append(Vulnerability(
 
             # 规则名称
-            "rule": item["check_id"],
+            id=rule_id,
+
+            rule=rule_id,
 
             # 文件名
-            "file": os.path.basename(item["path"]),
+            file=os.path.basename(item["path"]),
 
             # 漏洞代码行
-            "line": item["start"]["line"],
+            line=item["start"]["line"],
+
+            category=metadata["category"],
+
+            severity=metadata["severity"],
+
+            cwe=metadata["cwe"],
+
+            description=metadata["description"],
+
+            fix=metadata["fix"],
 
             # 漏洞信息
-            "message": item.get("extra", {}).get("message", "")
-        })
+            message=extra.get("message", "")
+        ))
 
 
     return {

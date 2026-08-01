@@ -1,0 +1,16 @@
+rules:
+  - id: php-xxe-entity-loader-disabled
+    languages:
+      - php
+    message: PHP explicitly enables external entity loading.
+    severity: ERROR
+    metadata:
+      category: xxe
+      severity: HIGH
+      cwe: CWE-611
+      description: PHP 显式启用外部实体加载可能导致 XXE
+      fix:
+        - 不要调用 libxml_disable_entity_loader(false) 启用外部实体
+        - 解析不可信 XML 时禁用网络访问并使用 LIBXML_NONET
+    pattern: libxml_disable_entity_loader(false)
+

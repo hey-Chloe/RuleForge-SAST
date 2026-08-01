@@ -1,0 +1,16 @@
+rules:
+  - id: java-command-execution
+    languages:
+      - java
+    message: Java Runtime.exec may execute an unsafe operating system command.
+    severity: ERROR
+    metadata:
+      category: command-execution
+      severity: HIGH
+      cwe: CWE-78
+      description: Java Runtime.exec 执行外部命令可能导致命令注入
+      fix:
+        - 不要将用户可控输入直接传入 Runtime.exec
+        - 使用参数列表、命令白名单并避免调用系统 shell
+    pattern: Runtime.getRuntime().exec(...)
+

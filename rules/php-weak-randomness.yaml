@@ -1,0 +1,19 @@
+rules:
+  - id: php-weak-randomness
+    languages:
+      - php
+    message: PHP uses a non-cryptographic random number generator.
+    severity: WARNING
+    metadata:
+      category: weak-randomness
+      severity: MEDIUM
+      cwe: CWE-330
+      description: PHP 使用非密码学安全的随机数生成函数
+      fix:
+        - 安全敏感的随机整数应使用 random_int
+        - 令牌和密钥材料应使用 random_bytes 生成
+    patterns:
+      - pattern-either:
+          - pattern: rand(...)
+          - pattern: mt_rand(...)
+

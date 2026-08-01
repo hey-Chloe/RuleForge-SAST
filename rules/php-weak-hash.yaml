@@ -1,0 +1,19 @@
+rules:
+  - id: php-weak-hash
+    languages:
+      - php
+    message: PHP uses a weak hash algorithm.
+    severity: WARNING
+    metadata:
+      category: weak-crypto
+      severity: MEDIUM
+      cwe: CWE-328
+      description: PHP 使用 MD5 或 SHA-1 弱哈希算法
+      fix:
+        - 密码存储应使用 password_hash 等专用安全函数
+        - 完整性校验应使用 SHA-256 或更强的哈希算法
+    patterns:
+      - pattern-either:
+          - pattern: md5(...)
+          - pattern: sha1(...)
+

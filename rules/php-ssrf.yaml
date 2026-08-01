@@ -1,0 +1,25 @@
+rules:
+  - id: php-ssrf-user-controlled-url
+    languages:
+      - php
+    message: User-controlled URL reaches a network request function.
+    severity: ERROR
+    mode: taint
+    metadata:
+      category: ssrf
+      severity: HIGH
+      cwe: CWE-918
+      description: 用户可控 URL 进入网络请求，可能导致 SSRF
+      fix:
+        - 仅允许访问经过验证的可信协议、域名和端口
+        - 使用服务端 URL 白名单并阻止访问内网及本地地址
+    pattern-sources:
+      - pattern-either:
+          - pattern: $_GET[$KEY]
+          - pattern: $_POST[$KEY]
+          - pattern: $_REQUEST[$KEY]
+    pattern-sinks:
+      - pattern-either:
+          - pattern: file_get_contents($URL)
+          - pattern: curl_init($URL)
+

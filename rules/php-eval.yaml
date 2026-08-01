@@ -1,0 +1,16 @@
+rules:
+  - id: php-dangerous-eval
+    languages:
+      - php
+    message: Dangerous PHP eval code execution.
+    severity: ERROR
+    metadata:
+      category: code-execution
+      severity: CRITICAL
+      cwe: CWE-95
+      description: 不安全的 PHP eval 代码执行
+      fix:
+        - 避免将用户可控输入传入 eval
+        - 使用 json_decode 等安全的数据解析方式替代动态代码执行
+    pattern: eval($X)
+

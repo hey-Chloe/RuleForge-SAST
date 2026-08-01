@@ -1,0 +1,21 @@
+rules:
+  - id: python-subprocess-shell-true
+    languages:
+      - python
+    message: Python subprocess uses shell=True.
+    severity: ERROR
+    metadata:
+      category: command-execution
+      severity: HIGH
+      cwe: CWE-78
+      description: Python subprocess 使用 shell=True 可能导致命令注入
+      fix:
+        - 避免使用 shell=True
+        - 使用参数列表分别传递命令和参数
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.run(..., shell=True, ...)
+          - pattern: subprocess.call(..., shell=True, ...)
+          - pattern: subprocess.Popen(..., shell=True, ...)
+          - pattern: subprocess.check_output(..., shell=True, ...)
+

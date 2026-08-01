@@ -1,0 +1,29 @@
+rules:
+  - id: php-reflected-xss
+    languages:
+      - php
+    message: User-controlled input is written directly to an HTML response.
+    severity: ERROR
+    mode: taint
+    metadata:
+      category: xss
+      severity: HIGH
+      cwe: CWE-79
+      description: 用户可控输入直接输出到 HTML，可能导致反射型 XSS
+      fix:
+        - 输出到 HTML 前使用 htmlspecialchars 并指定正确字符集
+        - 根据 HTML、属性或 JavaScript 上下文采用对应的输出编码
+    pattern-sources:
+      - pattern-either:
+          - pattern: $_GET[$KEY]
+          - pattern: $_POST[$KEY]
+          - pattern: $_REQUEST[$KEY]
+    pattern-sinks:
+      - pattern-either:
+          - pattern: echo $X;
+          - pattern: print $X;
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: htmlspecialchars(...)
+          - pattern: htmlentities(...)
+

@@ -1,0 +1,20 @@
+rules:
+  - id: java-sql-injection
+    languages:
+      - java
+    message: Java Statement executes a directly concatenated SQL string.
+    severity: ERROR
+    metadata:
+      category: sql-injection
+      severity: HIGH
+      cwe: CWE-89
+      description: Java Statement 直接执行字符串拼接的 SQL
+      fix:
+        - 使用 PreparedStatement 和占位符构造参数化查询
+        - 不要将用户输入通过字符串拼接写入 SQL 语句
+    patterns:
+      - pattern-either:
+          - pattern: $STATEMENT.executeQuery($LEFT + $RIGHT)
+          - pattern: $STATEMENT.execute($LEFT + $RIGHT)
+          - pattern: $STATEMENT.executeUpdate($LEFT + $RIGHT)
+

@@ -1,0 +1,16 @@
+rules:
+  - id: python-dangerous-eval
+    languages:
+      - python
+    message: Dangerous Python eval code execution.
+    severity: ERROR
+    metadata:
+      category: code-execution
+      severity: CRITICAL
+      cwe: CWE-95
+      description: 不安全的 Python eval 代码执行
+      fix:
+        - 避免将用户输入或外部数据传入 eval
+        - 使用 ast.literal_eval 或显式的数据解析逻辑替代动态代码执行
+    pattern: eval($X)
+

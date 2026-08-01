@@ -1,0 +1,19 @@
+rules:
+  - id: python-unsafe-pickle
+    languages:
+      - python
+    message: Unsafe Python pickle deserialization.
+    severity: ERROR
+    metadata:
+      category: deserialization
+      severity: HIGH
+      cwe: CWE-502
+      description: 不安全的 Python pickle 反序列化
+      fix:
+        - 不要反序列化不可信来源的 pickle 数据
+        - 使用 JSON 等安全数据格式替代 pickle
+    patterns:
+      - pattern-either:
+          - pattern: pickle.load(...)
+          - pattern: pickle.loads(...)
+

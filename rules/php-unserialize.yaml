@@ -4,6 +4,14 @@ rules:
       - php
     message: Dangerous unserialize usage
     severity: ERROR
+    metadata:
+      category: deserialization
+      severity: HIGH
+      cwe: CWE-502
+      description: 不安全反序列化漏洞
+      fix:
+        - 避免用户可控输入进入 unserialize
+        - 使用安全序列化方式
 
     patterns:
       - pattern: unserialize($X)

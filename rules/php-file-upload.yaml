@@ -1,0 +1,22 @@
+rules:
+  - id: php-user-controlled-upload-name
+    languages:
+      - php
+    message: User-controlled upload filename reaches the server storage path.
+    severity: ERROR
+    mode: taint
+    metadata:
+      category: file-upload
+      severity: HIGH
+      cwe: CWE-434
+      description: 用户可控上传文件名用于存储路径，可能导致危险文件上传
+      fix:
+        - 使用服务端生成的随机文件名并固定允许的文件扩展名
+        - 校验文件内容和 MIME 类型并将上传文件存储在 Web 根目录之外
+    pattern-sources:
+      - pattern: $_FILES[$KEY]["name"]
+    pattern-sinks:
+      - patterns:
+          - pattern: move_uploaded_file($TMP, $DEST)
+          - focus-metavariable: $DEST
+

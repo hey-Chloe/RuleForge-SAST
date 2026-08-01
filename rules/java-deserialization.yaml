@@ -1,0 +1,20 @@
+rules:
+  - id: java-unsafe-deserialization
+    languages:
+      - java
+    message: Java ObjectInputStream deserialization may execute unsafe object data.
+    severity: ERROR
+    metadata:
+      category: deserialization
+      severity: HIGH
+      cwe: CWE-502
+      description: Java 使用 ObjectInputStream 反序列化不可信对象
+      fix:
+        - 不要使用 ObjectInputStream 反序列化不可信来源的数据
+        - 使用 JSON 等安全格式并对允许的数据类型进行严格校验
+    patterns:
+      - pattern: $STREAM.readObject(...)
+      - metavariable-type:
+          metavariable: $STREAM
+          type: ObjectInputStream
+
