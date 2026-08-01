@@ -20,7 +20,7 @@ const navigation: NavigationItem[] = [
   { label: 'Scans', icon: 'scan', page: 'scans' },
   { label: 'Vulnerabilities', icon: 'shield', page: 'vulnerabilities' },
   { label: 'Rules', icon: 'rules', page: 'rules' },
-  { label: 'Reports', icon: 'report', page: null },
+  { label: 'Reports', icon: 'report', page: 'reports' },
 ]
 
 function navigate(item: NavigationItem): void {
