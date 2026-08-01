@@ -1,13 +1,25 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 import shutil
 import os
 
 from engine.semgrep_runner import scan
+from services.rule_catalog import RuleCatalogError, load_rule_catalog
 
 
 app = FastAPI()
+
+
+@app.get("/rules")
+def get_rules():
+    try:
+        return {"rules": load_rule_catalog()}
+    except RuleCatalogError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to load local rule catalog: {exc}",
+        ) from None
 
 
 
