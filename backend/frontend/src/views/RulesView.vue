@@ -1,39 +1,110 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import RuleDetailPanel from '../components/RuleDetailPanel.vue'
 import RuleFilters from '../components/RuleFilters.vue'
 import SeverityBadge from '../components/SeverityBadge.vue'
-import { ruleLibrary } from '../data/rulesMock'
-import type { RuleLanguageFilter, RuleRecord, RuleSeverityFilter } from '../types/rules'
+import { fetchRuleCatalog, readableRuleApiError } from '../services/ruleApi'
+import type { Severity } from '../types/dashboard'
+import type {
+  RuleCatalogItem,
+  RuleCatalogState,
+  RuleLanguage,
+  RuleLanguageFilter,
+  RuleSeverityFilter,
+} from '../types/rules'
 
 const languageFilter = ref<RuleLanguageFilter>('All')
 const severityFilter = ref<RuleSeverityFilter>('All')
 const categoryFilter = ref('All')
 const query = ref('')
-const selectedRule = ref<RuleRecord | null>(null)
+const rules = ref<RuleCatalogItem[]>([])
+const loadState = ref<RuleCatalogState>('Loading')
+const errorMessage = ref('')
+const selectedRule = ref<RuleCatalogItem | null>(null)
 
-const categories = Array.from(new Set(ruleLibrary.map((rule) => rule.category))).sort()
+const categories = computed(() => (
+  Array.from(new Set(rules.value.map((rule) => rule.category))).sort()
+))
 
-const stats = [
-  { label: 'Total Rules', value: ruleLibrary.length, helper: '包含 1 条 Generic 规则', tone: 'total' },
-  { label: 'PHP Rules', value: ruleLibrary.filter((rule) => rule.language === 'PHP').length, helper: 'PHP 代码安全检测', tone: 'php' },
-  { label: 'Python Rules', value: ruleLibrary.filter((rule) => rule.language === 'Python').length, helper: 'Python 代码安全检测', tone: 'python' },
-  { label: 'Java Rules', value: ruleLibrary.filter((rule) => rule.language === 'Java').length, helper: 'Java 代码安全检测', tone: 'java' },
-]
+const stats = computed(() => [
+  { label: 'Total Rules', value: rules.value.length, helper: '来自本地 GET /rules', tone: 'total' },
+  { label: 'PHP Rules', value: countLanguage('PHP'), helper: 'PHP 代码安全检测', tone: 'php' },
+  { label: 'Python Rules', value: countLanguage('Python'), helper: 'Python 代码安全检测', tone: 'python' },
+  { label: 'Java Rules', value: countLanguage('Java'), helper: 'Java 代码安全检测', tone: 'java' },
+])
 
 const filteredRules = computed(() => {
   const keyword = query.value.trim().toLocaleLowerCase()
 
-  return ruleLibrary.filter((rule) => {
-    const matchesLanguage = languageFilter.value === 'All' || rule.language === languageFilter.value
-    const matchesSeverity = severityFilter.value === 'All' || rule.severity === severityFilter.value
+  return rules.value.filter((rule) => {
+    const displayLanguage = formatLanguages(rule.languages)
+    const displaySeverity = severityForBadge(rule.severity)
+    const matchesLanguage = languageFilter.value === 'All'
+      || hasLanguage(rule, languageFilter.value)
+    const matchesSeverity = severityFilter.value === 'All'
+      || displaySeverity === severityFilter.value
     const matchesCategory = categoryFilter.value === 'All' || rule.category === categoryFilter.value
     const matchesKeyword = keyword.length === 0
-      || [rule.id, rule.cwe, rule.language].some((value) => value.toLocaleLowerCase().includes(keyword))
+      || [rule.id, rule.cwe, displayLanguage].some(
+        (value) => value.toLocaleLowerCase().includes(keyword),
+      )
 
     return matchesLanguage && matchesSeverity && matchesCategory && matchesKeyword
   })
 })
+
+function normalizeLanguage(language: string): RuleLanguage | null {
+  const normalized = language.trim().toLocaleLowerCase()
+  const languageMap: Record<string, RuleLanguage> = {
+    php: 'PHP',
+    python: 'Python',
+    java: 'Java',
+    generic: 'Generic',
+  }
+  return languageMap[normalized] ?? null
+}
+
+function hasLanguage(rule: RuleCatalogItem, language: RuleLanguage): boolean {
+  return rule.languages.some((item) => normalizeLanguage(item) === language)
+}
+
+function countLanguage(language: RuleLanguage): number {
+  return rules.value.filter((rule) => hasLanguage(rule, language)).length
+}
+
+function formatLanguages(languages: string[]): string {
+  if (!languages.length) return 'Unknown'
+  return languages.map((language) => normalizeLanguage(language) ?? language).join(', ')
+}
+
+function severityForBadge(severity: RuleCatalogItem['severity']): Severity {
+  const severityMap: Record<RuleCatalogItem['severity'], Severity> = {
+    CRITICAL: 'Critical',
+    HIGH: 'High',
+    MEDIUM: 'Medium',
+    LOW: 'Low',
+    ERROR: 'High',
+    WARNING: 'Medium',
+    UNKNOWN: 'Unknown',
+  }
+  return severityMap[severity]
+}
+
+async function loadRules(): Promise<void> {
+  loadState.value = 'Loading'
+  errorMessage.value = ''
+  selectedRule.value = null
+
+  try {
+    const response = await fetchRuleCatalog()
+    rules.value = response.rules
+    loadState.value = response.rules.length ? 'Success' : 'Empty'
+  } catch (error: unknown) {
+    rules.value = []
+    loadState.value = 'Failed'
+    errorMessage.value = readableRuleApiError(error)
+  }
+}
 
 function resetFilters(): void {
   languageFilter.value = 'All'
@@ -42,13 +113,15 @@ function resetFilters(): void {
   query.value = ''
 }
 
-function openDetails(rule: RuleRecord): void {
+function openDetails(rule: RuleCatalogItem): void {
   selectedRule.value = rule
 }
 
 function closeDetails(): void {
   selectedRule.value = null
 }
+
+onMounted(loadRules)
 </script>
 
 <template>
@@ -60,14 +133,39 @@ function closeDetails(): void {
         <p>查看当前项目内置的 Semgrep 规则、风险元数据与检测方式。</p>
       </div>
       <div class="library-state">
-        <span class="state-dot" aria-hidden="true"></span>
+        <span class="state-dot" :class="`state-${loadState.toLowerCase()}`" aria-hidden="true"></span>
         <div>
-          <span>规则来源</span>
-          <strong>rules/*.yaml</strong>
+          <span>规则 API</span>
+          <strong>GET /rules</strong>
         </div>
       </div>
     </header>
 
+    <section v-if="loadState === 'Loading'" class="request-state" role="status" aria-live="polite">
+      <span class="loading-indicator" aria-hidden="true"></span>
+      <div>
+        <strong>正在读取本地规则库</strong>
+        <p>正在连接 http://127.0.0.1:8000/rules</p>
+      </div>
+    </section>
+
+    <section v-else-if="loadState === 'Failed'" class="request-state request-failed" role="alert">
+      <div>
+        <strong>无法连接本地规则库 API</strong>
+        <p>{{ errorMessage }}</p>
+      </div>
+      <button type="button" @click="loadRules">Retry</button>
+    </section>
+
+    <section v-else-if="loadState === 'Empty'" class="request-state request-empty" aria-live="polite">
+      <div>
+        <strong>本地规则库暂无规则</strong>
+        <p>GET /rules 已成功响应，但没有返回可展示的规则。</p>
+      </div>
+      <button type="button" @click="loadRules">重新加载</button>
+    </section>
+
+    <template v-else>
     <div class="stats-grid" aria-label="规则统计">
       <article v-for="stat in stats" :key="stat.label" class="stat-card" :class="`tone-${stat.tone}`">
         <div>
@@ -122,9 +220,9 @@ function closeDetails(): void {
               @click="openDetails(rule)"
               @keydown.enter="openDetails(rule)"
             >
-              <td><SeverityBadge :severity="rule.severity" /></td>
+              <td><SeverityBadge :severity="severityForBadge(rule.severity)" /></td>
               <td class="rule-id">{{ rule.id }}</td>
-              <td><span class="language-tag">{{ rule.language }}</span></td>
+              <td><span class="language-tag">{{ formatLanguages(rule.languages) }}</span></td>
               <td>{{ rule.category }}</td>
               <td class="mono muted">{{ rule.cwe }}</td>
               <td class="description" :title="rule.description">{{ rule.description }}</td>
@@ -139,6 +237,7 @@ function closeDetails(): void {
         <button type="button" @click="resetFilters">清除筛选</button>
       </div>
     </section>
+    </template>
 
     <RuleDetailPanel v-if="selectedRule" :rule="selectedRule" @close="closeDetails" />
   </section>
@@ -183,6 +282,72 @@ function closeDetails(): void {
   font-size: 13px;
 }
 
+.request-state {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 32px;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.request-state strong {
+  color: #3b5067;
+  font-size: 14px;
+}
+
+.request-state p {
+  margin: 7px 0 0;
+  color: #7b8999;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.request-state button {
+  padding: 9px 14px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  background: #526f8e;
+  border: 1px solid #486784;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.request-failed {
+  justify-content: space-between;
+  color: #8d3941;
+  background: #fffafb;
+  border-color: #eccfd3;
+}
+
+.request-failed strong {
+  color: #8d3941;
+}
+
+.request-empty {
+  justify-content: space-between;
+}
+
+.loading-indicator {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  border: 2px solid #d8e1e9;
+  border-top-color: #5b7896;
+  border-radius: 50%;
+  animation: loading-rotate .8s linear infinite;
+}
+
+@keyframes loading-rotate {
+  to { transform: rotate(360deg); }
+}
+
 .library-state {
   display: flex;
   align-items: center;
@@ -195,6 +360,11 @@ function closeDetails(): void {
   background: #649078;
   border-radius: 50%;
 }
+
+.state-loading { background: #7189a5; }
+.state-success { background: #649078; }
+.state-failed { background: #bd4b54; }
+.state-empty { background: #b1933d; }
 
 .library-state div {
   display: flex;
@@ -425,6 +595,11 @@ tbody tr:focus-visible {
 
   .table-heading {
     padding-inline: 16px;
+  }
+
+  .request-state {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

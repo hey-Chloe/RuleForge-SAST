@@ -1,21 +1,81 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import SeverityBadge from './SeverityBadge.vue'
-import type { RuleRecord } from '../types/rules'
+import type { Severity } from '../types/dashboard'
+import type { RuleCatalogItem, RuleDetectionMethod } from '../types/rules'
 
 const props = defineProps<{
-  rule: RuleRecord
+  rule: RuleCatalogItem
 }>()
 
 const emit = defineEmits<{
   close: []
 }>()
 
+const taintRuleIds = new Set([
+  'php-ssrf-user-controlled-url',
+  'php-reflected-xss',
+  'php-user-controlled-upload-name',
+])
+
+const detectionMethod = computed<RuleDetectionMethod>(() => {
+  if (taintRuleIds.has(props.rule.id)) return 'Taint Analysis'
+  if (props.rule.id === 'hardcoded-secret') return 'Regex Pattern'
+  if (props.rule.id === 'java-sql-injection') return 'Direct Pattern'
+  return 'Direct API Detection'
+})
+
+const detectionSummary = computed(() => {
+  if (detectionMethod.value === 'Taint Analysis') {
+    return '该规则使用 Semgrep taint mode 跟踪明确的 source 到 sink 数据流。'
+  }
+  if (detectionMethod.value === 'Regex Pattern') {
+    return '该规则使用正则表达式匹配特定的危险代码形式。'
+  }
+  if (detectionMethod.value === 'Direct Pattern') {
+    return '初版直接模式检测，匹配 SQL 字符串拼接后进入 Statement 执行方法的场景。'
+  }
+  return '该规则直接匹配已知的高风险 API 或代码调用形式。'
+})
+
 const detectionClass = computed(() => {
-  if (props.rule.detectionMethod === 'Taint Analysis') return 'method-taint'
-  if (props.rule.detectionMethod === 'Regex Pattern') return 'method-regex'
+  if (detectionMethod.value === 'Taint Analysis') return 'method-taint'
+  if (detectionMethod.value === 'Regex Pattern') return 'method-regex'
   return 'method-direct'
 })
+
+const displaySeverity = computed<Severity>(() => {
+  const severityMap: Record<RuleCatalogItem['severity'], Severity> = {
+    CRITICAL: 'Critical',
+    HIGH: 'High',
+    MEDIUM: 'Medium',
+    LOW: 'Low',
+    ERROR: 'High',
+    WARNING: 'Medium',
+    UNKNOWN: 'Unknown',
+  }
+  return severityMap[props.rule.severity]
+})
+
+const displayLanguages = computed(() => {
+  const languageLabels: Record<string, string> = {
+    php: 'PHP',
+    python: 'Python',
+    java: 'Java',
+    generic: 'Generic',
+  }
+  return props.rule.languages.length
+    ? props.rule.languages.map(
+      (language) => languageLabels[language.toLocaleLowerCase()] ?? language,
+    ).join(', ')
+    : 'Unknown'
+})
+
+const usesMetadataDefaults = computed(() => (
+  props.rule.category === 'unknown'
+  || props.rule.cwe === 'N/A'
+  || props.rule.fix.length === 0
+))
 
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') emit('close')
@@ -33,7 +93,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
           <div>
             <span class="detail-kicker">Rule details</span>
             <h2 id="rule-detail-title">{{ rule.id }}</h2>
-            <span class="source-badge">{{ rule.source }}</span>
+            <span class="source-badge">Local Rule Library</span>
           </div>
           <button type="button" aria-label="关闭规则详情" @click="emit('close')">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -44,14 +104,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
 
         <div class="detail-content">
           <div class="risk-row">
-            <SeverityBadge :severity="rule.severity" />
-            <span class="detection-badge" :class="detectionClass">{{ rule.detectionMethod }}</span>
+            <SeverityBadge :severity="displaySeverity" />
+            <span class="detection-badge" :class="detectionClass">{{ detectionMethod }}</span>
           </div>
 
           <dl class="detail-grid">
             <div>
               <dt>Language</dt>
-              <dd>{{ rule.language }}</dd>
+              <dd>{{ displayLanguages }}</dd>
             </div>
             <div>
               <dt>Category</dt>
@@ -63,37 +123,43 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown))
             </div>
             <div>
               <dt>Semgrep Severity</dt>
-              <dd>{{ rule.semgrepSeverity }}</dd>
+              <dd>{{ rule.semgrep_severity }}</dd>
             </div>
           </dl>
 
           <section class="detail-section">
             <h3>中文漏洞描述</h3>
-            <p>{{ rule.description }}</p>
+            <p>{{ rule.description || '暂无描述' }}</p>
           </section>
 
           <section class="detail-section">
             <h3>修复建议</h3>
-            <ul>
-              <li v-for="fix in rule.fixes" :key="fix">{{ fix }}</li>
+            <ul v-if="rule.fix.length">
+              <li v-for="fix in rule.fix" :key="fix">{{ fix }}</li>
             </ul>
+            <p v-else>暂无修复建议</p>
+          </section>
+
+          <section class="detail-section">
+            <h3>Semgrep Message</h3>
+            <p>{{ rule.message || '暂无消息' }}</p>
           </section>
 
           <section class="detection-card">
             <div>
               <span>检测方式</span>
-              <strong>{{ rule.detectionMethod }}</strong>
+              <strong>{{ detectionMethod }}</strong>
             </div>
-            <p>{{ rule.detectionSummary }}</p>
+            <p>{{ detectionSummary }}</p>
           </section>
 
           <section class="source-card">
             <div>
-              <span>规则来源</span>
-              <strong>{{ rule.source }}</strong>
+              <span>Source File</span>
+              <strong>Local Rule Library</strong>
             </div>
-            <code>{{ rule.sourceFile }}</code>
-            <p v-if="!rule.metadataAvailable">该规则 YAML 尚未提供 metadata，CWE 和修复建议按安全默认值展示。</p>
+            <code>{{ rule.source_file }}</code>
+            <p v-if="usesMetadataDefaults">该规则使用 API 提供的 metadata 安全默认值，缺失内容不会影响展示。</p>
           </section>
         </div>
       </aside>

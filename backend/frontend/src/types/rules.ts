@@ -27,3 +27,31 @@ export interface RuleRecord {
   sourceFile: string
   metadataAvailable: boolean
 }
+
+export type RuleCatalogSeverity =
+  | 'CRITICAL'
+  | 'HIGH'
+  | 'MEDIUM'
+  | 'LOW'
+  | 'ERROR'
+  | 'WARNING'
+  | 'UNKNOWN'
+
+export interface RuleCatalogItem {
+  id: string
+  languages: string[]
+  message: string
+  semgrep_severity: RuleCatalogSeverity
+  category: string
+  severity: RuleCatalogSeverity
+  cwe: string
+  description: string
+  fix: string[]
+  source_file: string
+}
+
+export interface RuleCatalogResponse {
+  rules: RuleCatalogItem[]
+}
+
+export type RuleCatalogState = 'Loading' | 'Success' | 'Failed' | 'Empty'
