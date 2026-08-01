@@ -1,4 +1,78 @@
+:root {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Microsoft YaHei", sans-serif;
+  color: #35465a;
+  background: #f3f6f9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  --sidebar-width: 248px;
+  --sidebar-compact-width: 82px;
+  --sidebar-mobile-height: 72px;
+  --background: #f3f6f9;
+  --surface: #ffffff;
+  --heading: #1c2c3e;
+  --text: #35465a;
+  --muted: #748397;
+  --primary: #607b9a;
+  --primary-soft: #edf2f7;
+  --border: #dfe6ed;
+  --critical: #c74650;
+  --critical-soft: #faeaec;
+  --high: #d57539;
+  --high-soft: #fbefe7;
+  --medium: #b58a2d;
+  --medium-soft: #fbf4df;
+  --low: #4f7c70;
+  --low-soft: #e9f2ef;
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(21, 39, 59, 0.04);
+  --border-color: var(--border);
+  --card-radius: var(--radius);
+  --card-shadow: var(--shadow);
+  --heading-color: var(--heading);
+  --muted-text: var(--muted);
+  --primary-color: var(--primary);
+  --critical-color: var(--critical);
+  --high-color: var(--high);
+  --mono-font: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--background);
+}
+
 body {
+  min-width: 320px;
+  min-height: 100vh;
   margin: 0;
-  font-family: Arial, sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+::selection {
+  color: var(--heading);
+  background: #dce7f2;
 }
