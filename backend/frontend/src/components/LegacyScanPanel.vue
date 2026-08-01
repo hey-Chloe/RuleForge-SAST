@@ -1,17 +1,26 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
+import ScanRuleSelector from './ScanRuleSelector.vue'
 import ScanResultsTable from './ScanResultsTable.vue'
 import VulnerabilityDetailPanel from './VulnerabilityDetailPanel.vue'
+import { fetchRuleCatalog, readableRuleApiError } from '../services/ruleApi'
 import type {
   ScanStatus,
   Severity,
   VulnerabilityRecord,
 } from '../types/dashboard'
+import type { RuleCatalogItem, RuleCatalogState } from '../types/rules'
 
 type UnknownRecord = Record<string, unknown>
 
 const SCAN_URL = 'http://127.0.0.1:8000/scan'
+const DEFAULT_RULE_ID = 'php-dangerous-unserialize'
+
+interface CompletedScan {
+  ruleId: string
+  sourceFile: string
+}
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -20,8 +29,22 @@ const errorMessage = ref('')
 const findings = ref<VulnerabilityRecord[]>([])
 const selectedFinding = ref<VulnerabilityRecord | null>(null)
 const dragActive = ref(false)
+const phpRules = ref<RuleCatalogItem[]>([])
+const selectedRuleId = ref('')
+const ruleLoadState = ref<RuleCatalogState>('Loading')
+const ruleErrorMessage = ref('')
+const completedScan = ref<CompletedScan | null>(null)
 
 const isBusy = computed(() => status.value === 'Uploading' || status.value === 'Scanning')
+const selectedRule = computed(() => (
+  phpRules.value.find((rule) => rule.id === selectedRuleId.value) ?? null
+))
+const canScan = computed(() => (
+  Boolean(selectedFile.value)
+  && Boolean(selectedRule.value)
+  && ruleLoadState.value === 'Success'
+  && !isBusy.value
+))
 
 const statusCopy: Record<ScanStatus, { label: string; detail: string }> = {
   Idle: { label: 'Idle', detail: '选择一个 PHP 文件开始扫描' },
@@ -98,6 +121,15 @@ function normalizeResponse(value: unknown, sourceFile: string): VulnerabilityRec
   return value.vulnerabilities.map((finding, index) => normalizeFinding(finding, index, sourceFile))
 }
 
+function normalizeCompletedScan(value: unknown): CompletedScan {
+  const response = isRecord(value) ? value : {}
+  const scanInfo = isRecord(response.scan) ? response.scan : {}
+  return {
+    ruleId: safeString(scanInfo.rule_id, selectedRuleId.value),
+    sourceFile: safeString(scanInfo.source_file, selectedRule.value?.source_file ?? 'unknown'),
+  }
+}
+
 function extractErrorDetail(value: unknown): string {
   if (typeof value === 'string' && value.trim()) return value.trim()
   if (!isRecord(value)) return ''
@@ -127,6 +159,7 @@ function setFile(file: File | null): void {
   errorMessage.value = ''
   findings.value = []
   selectedFinding.value = null
+  completedScan.value = null
 
   if (!file) {
     selectedFile.value = null
@@ -162,14 +195,17 @@ function openFilePicker(): void {
 
 async function scan(): Promise<void> {
   const file = selectedFile.value
-  if (!file || isBusy.value) return
+  const rule = selectedRule.value
+  if (!file || !rule || !canScan.value) return
 
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('rule_id', rule.id)
 
   errorMessage.value = ''
   findings.value = []
   selectedFinding.value = null
+  completedScan.value = null
   status.value = 'Uploading'
 
   try {
@@ -183,6 +219,7 @@ async function scan(): Promise<void> {
     })
 
     findings.value = normalizeResponse(response.data, file.name)
+    completedScan.value = normalizeCompletedScan(response.data)
     status.value = 'Completed'
   } catch (error: unknown) {
     status.value = 'Failed'
@@ -190,13 +227,63 @@ async function scan(): Promise<void> {
   }
 }
 
+function selectRule(ruleId: string): void {
+  if (isBusy.value) return
+  selectedRuleId.value = ruleId
+  findings.value = []
+  selectedFinding.value = null
+  completedScan.value = null
+  errorMessage.value = ''
+  status.value = 'Idle'
+}
+
+function supportsPhp(rule: RuleCatalogItem): boolean {
+  return rule.languages.some((language) => language.toLocaleLowerCase() === 'php')
+}
+
+async function loadPhpRules(): Promise<void> {
+  ruleLoadState.value = 'Loading'
+  ruleErrorMessage.value = ''
+  phpRules.value = []
+  selectedRuleId.value = ''
+
+  try {
+    const response = await fetchRuleCatalog()
+    phpRules.value = response.rules.filter(supportsPhp)
+    if (!phpRules.value.length) {
+      ruleLoadState.value = 'Empty'
+      return
+    }
+
+    selectedRuleId.value = phpRules.value.some((rule) => rule.id === DEFAULT_RULE_ID)
+      ? DEFAULT_RULE_ID
+      : phpRules.value[0].id
+    ruleLoadState.value = 'Success'
+  } catch (error: unknown) {
+    ruleLoadState.value = 'Failed'
+    ruleErrorMessage.value = readableRuleApiError(error)
+  }
+}
+
 function closeDetails(): void {
   selectedFinding.value = null
 }
+
+onMounted(loadPhpRules)
 </script>
 
 <template>
   <section class="scan-panel" aria-labelledby="upload-title">
+    <ScanRuleSelector
+      :state="ruleLoadState"
+      :rules="phpRules"
+      :selected-rule-id="selectedRuleId"
+      :error-message="ruleErrorMessage"
+      :disabled="isBusy"
+      @update:selected-rule-id="selectRule"
+      @retry="loadPhpRules"
+    />
+
     <div class="panel-heading">
       <div>
         <span class="section-kicker">Scan target</span>
@@ -245,7 +332,7 @@ function closeDetails(): void {
           <span>{{ statusCopy[status].detail }}</span>
         </div>
       </div>
-      <button class="scan-button" type="button" :disabled="!selectedFile || isBusy" @click="scan">
+      <button class="scan-button" type="button" :disabled="!canScan" @click="scan">
         {{ isBusy ? statusCopy[status].label : 'Start Scan' }}
       </button>
     </div>
@@ -260,6 +347,9 @@ function closeDetails(): void {
         <div>
           <span class="section-kicker">Scan results</span>
           <h2 id="scan-results-title">本次扫描结果</h2>
+          <p v-if="completedScan" class="completed-rule">
+            Rule: <code>{{ completedScan.ruleId }}</code> · Source: <code>{{ completedScan.sourceFile }}</code>
+          </p>
         </div>
         <div class="result-count">
           <strong>{{ findings.length }}</strong>
@@ -274,7 +364,7 @@ function closeDetails(): void {
       />
       <div v-else class="clean-result">
         <strong>未发现匹配漏洞</strong>
-        <p>当前固定规则未在该文件中发现危险 PHP 反序列化调用。</p>
+        <p>所选规则 {{ completedScan?.ruleId ?? selectedRuleId }} 未在该文件中发现匹配漏洞。</p>
       </div>
     </section>
 
@@ -514,6 +604,17 @@ h2 {
   color: #8290a0;
   font-size: 10px;
   text-transform: uppercase;
+}
+
+.completed-rule {
+  margin: 7px 0 0;
+  color: #748397;
+  font-size: 10px;
+}
+
+.completed-rule code {
+  color: #4f6882;
+  font-family: var(--mono-font);
 }
 
 .clean-result {

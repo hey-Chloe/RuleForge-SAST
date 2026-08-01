@@ -14,6 +14,10 @@ class RuleCatalogError(RuntimeError):
     """Raised when the local rule catalog cannot be read safely."""
 
 
+class RuleSelectionError(ValueError):
+    """Raised when a requested rule cannot be selected for a scan."""
+
+
 def _non_empty_string(value: Any, default: str) -> str:
     if isinstance(value, str) and value.strip():
         return value
@@ -92,3 +96,40 @@ def load_rule_catalog() -> list[dict[str, Any]]:
             catalog.append(_normalize_rule(rule, rule_file.name))
 
     return catalog
+
+
+def resolve_rule_for_language(
+    rule_id: str,
+    required_language: str,
+) -> tuple[dict[str, Any], Path]:
+    """Resolve a catalog rule to a trusted file within the local rules directory."""
+    requested_id = rule_id.strip() if isinstance(rule_id, str) else ""
+    rule = next(
+        (item for item in load_rule_catalog() if item["id"] == requested_id),
+        None,
+    )
+    if rule is None:
+        raise RuleSelectionError(f"Unknown rule_id: {requested_id or '(empty)'}")
+
+    normalized_language = required_language.strip().lower()
+    supported_languages = {
+        language.strip().lower()
+        for language in rule["languages"]
+        if isinstance(language, str)
+    }
+    if normalized_language not in supported_languages:
+        raise RuleSelectionError(
+            f"Rule {requested_id} does not support {required_language.upper()} scans"
+        )
+
+    try:
+        rules_root = RULES_DIRECTORY.resolve(strict=True)
+        rule_path = (rules_root / rule["source_file"]).resolve(strict=True)
+        rule_path.relative_to(rules_root)
+    except (OSError, ValueError) as exc:
+        raise RuleCatalogError("Selected rule file is unavailable") from exc
+
+    if not rule_path.is_file() or rule_path.suffix.lower() not in {".yaml", ".yml"}:
+        raise RuleCatalogError("Selected rule file is invalid")
+
+    return rule, rule_path

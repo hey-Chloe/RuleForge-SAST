@@ -8,7 +8,7 @@ import LegacyScanPanel from '../components/LegacyScanPanel.vue'
       <div>
         <span class="view-eyebrow">Semgrep scan</span>
         <h1 id="scans-title">代码扫描</h1>
-        <p>上传 PHP 源码，运行后端当前配置的静态安全规则。</p>
+        <p>上传 PHP 源码，并从本地真实规则库选择一条规则执行扫描。</p>
       </div>
       <div class="service-state">
         <span class="service-dot" aria-hidden="true"></span>
@@ -25,8 +25,8 @@ import LegacyScanPanel from '../components/LegacyScanPanel.vue'
         <path d="M12 10v6m0-9h.01" />
       </svg>
       <div>
-        <strong>当前版本支持上传单个 PHP 文件，并使用后端已配置的扫描规则。</strong>
-        <p>本接口固定使用 php-unserialize 规则，不提供多规则或批量文件选择。</p>
+        <strong>当前版本支持上传单个 PHP 文件，并选择一条真实 PHP 规则。</strong>
+        <p>规则来自 GET /rules；每次扫描只执行一条规则，不支持多文件或批量规则。</p>
       </div>
     </aside>
 

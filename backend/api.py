@@ -1,14 +1,22 @@
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from pathlib import Path
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 import shutil
-import os
 
 from engine.semgrep_runner import scan
-from services.rule_catalog import RuleCatalogError, load_rule_catalog
+from services.rule_catalog import (
+    RuleCatalogError,
+    RuleSelectionError,
+    load_rule_catalog,
+    resolve_rule_for_language,
+)
 
 
 app = FastAPI()
+BACKEND_DIRECTORY = Path(__file__).resolve().parent
+DEFAULT_SCAN_RULE_ID = "php-dangerous-unserialize"
 
 
 @app.get("/rules")
@@ -48,42 +56,39 @@ app.add_middleware(
 
 @app.post("/scan")
 async def scan_code(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    rule_id: str | None = Form(None),
 ):
+    selected_rule_id = rule_id.strip() if isinstance(rule_id, str) and rule_id.strip() else DEFAULT_SCAN_RULE_ID
 
+    try:
+        selected_rule, rule_path = resolve_rule_for_language(selected_rule_id, "php")
+    except RuleSelectionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RuleCatalogError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to select local scan rule: {exc}",
+        ) from None
 
-    # 保存上传文件
+    upload_path = BACKEND_DIRECTORY / "temp.php"
+    try:
+        with upload_path.open("wb") as destination:
+            shutil.copyfileobj(file.file, destination)
 
-    path = "temp.php"
+        result = scan(str(upload_path), str(rule_path))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Semgrep scan failed") from None
+    finally:
+        if upload_path.exists():
+            upload_path.unlink()
 
+    for vulnerability in result.get("vulnerabilities", []):
+        vulnerability["id"] = selected_rule["id"]
+        vulnerability["rule"] = selected_rule["id"]
 
-    with open(path, "wb") as f:
-
-        shutil.copyfileobj(
-            file.file,
-            f
-        )
-
-
-
-    # 调用 Semgrep 扫描
-
-    result = scan(
-
-        path,
-
-        "../rules/php-unserialize.yaml"
-
-    )
-
-
-
-    # 删除临时文件
-
-    if os.path.exists(path):
-
-        os.remove(path)
-
-
-
+    result["scan"] = {
+        "rule_id": selected_rule["id"],
+        "source_file": selected_rule["source_file"],
+    }
     return result
