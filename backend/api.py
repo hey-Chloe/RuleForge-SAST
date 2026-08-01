@@ -12,6 +12,8 @@ from services.rule_catalog import (
     load_rule_catalog,
     resolve_rule_for_language,
 )
+from services.ai_explainer import AIInputError, explain_vulnerability
+from services.deepseek_client import AIConfigurationError, AIUpstreamError
 
 
 app = FastAPI()
@@ -28,6 +30,21 @@ def get_rules():
             status_code=500,
             detail=f"Unable to load local rule catalog: {exc}",
         ) from None
+
+
+@app.post("/ai/explain")
+async def explain_vulnerability_with_ai(payload: dict[str, object]):
+    try:
+        return await explain_vulnerability(payload)
+    except AIInputError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except AIConfigurationError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI explanation service is not configured",
+        ) from None
+    except AIUpstreamError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
 
 
 

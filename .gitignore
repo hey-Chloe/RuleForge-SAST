@@ -8,6 +8,10 @@ venv/
 # Environment
 .env
 
+# Generated reports
+reports/*.json
+reports/*.md
+
 # Node
 node_modules/
 dist/
