@@ -1,10 +1,12 @@
 export type MetricTone = 'critical' | 'high' | 'neutral' | 'primary'
 
-export type Severity = 'Critical' | 'High' | 'Medium' | 'Low'
+export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Unknown'
 
 export type FindingStatus = 'Open' | 'Reviewing' | 'Fixed'
 
-export type AppView = 'dashboard' | 'vulnerabilities'
+export type AppView = 'dashboard' | 'scans' | 'vulnerabilities'
+
+export type ScanStatus = 'Idle' | 'Uploading' | 'Scanning' | 'Completed' | 'Failed'
 
 export type VulnerabilityLanguage = 'PHP' | 'Python' | 'Java'
 

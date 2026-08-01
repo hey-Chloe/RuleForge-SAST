@@ -49,4 +49,10 @@ const severityClass = computed(() => `severity-${props.severity.toLowerCase()}`)
   background: #edf3f7;
   border-color: #d5e0e8;
 }
+
+.severity-unknown {
+  color: #667384;
+  background: #f0f2f5;
+  border-color: #dde2e7;
+}
 </style>

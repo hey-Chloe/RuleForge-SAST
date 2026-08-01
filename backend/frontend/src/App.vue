@@ -5,6 +5,7 @@ import AppSidebar from './components/AppSidebar.vue'
 import { projectSummary } from './data/dashboardMock'
 import type { AppView } from './types/dashboard'
 import DashboardView from './views/DashboardView.vue'
+import ScansView from './views/ScansView.vue'
 import VulnerabilitiesView from './views/VulnerabilitiesView.vue'
 
 const activeView = ref<AppView>('dashboard')
@@ -22,6 +23,7 @@ function navigate(view: AppView): void {
       <AppHeader :project="projectSummary" />
       <main class="app-main">
         <DashboardView v-if="activeView === 'dashboard'" />
+        <ScansView v-else-if="activeView === 'scans'" />
         <VulnerabilitiesView v-else />
       </main>
     </div>
