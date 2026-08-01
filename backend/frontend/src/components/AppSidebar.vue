@@ -19,7 +19,7 @@ const navigation: NavigationItem[] = [
   { label: 'Dashboard', icon: 'dashboard', page: 'dashboard' },
   { label: 'Scans', icon: 'scan', page: 'scans' },
   { label: 'Vulnerabilities', icon: 'shield', page: 'vulnerabilities' },
-  { label: 'Rules', icon: 'rules', page: null },
+  { label: 'Rules', icon: 'rules', page: 'rules' },
   { label: 'Reports', icon: 'report', page: null },
 ]
 

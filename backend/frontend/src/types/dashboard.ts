@@ -4,7 +4,7 @@ export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Unknown'
 
 export type FindingStatus = 'Open' | 'Reviewing' | 'Fixed'
 
-export type AppView = 'dashboard' | 'scans' | 'vulnerabilities'
+export type AppView = 'dashboard' | 'scans' | 'vulnerabilities' | 'rules'
 
 export type ScanStatus = 'Idle' | 'Uploading' | 'Scanning' | 'Completed' | 'Failed'
 
