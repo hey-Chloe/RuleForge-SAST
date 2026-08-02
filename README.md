@@ -246,6 +246,18 @@ http://127.0.0.1:8000/docs
 - SQLite 数据库文件不会提交到 Git 仓库。
 
 ---
+## 在线演示
+
+🎬 [点击观看 RuleForge-SAST 一分钟项目演示](https://www.bilibili.com/video/BV1YC3Z6EEJC/)
+
+视频展示：
+
+- PHP、Python、Java 自动识别
+- Semgrep 全规则扫描
+- 漏洞详情与代码片段
+- AI 漏洞解释与修复建议
+- Patch 修复验证
+- 真实扫描历史
 
 ## 项目截图
 
