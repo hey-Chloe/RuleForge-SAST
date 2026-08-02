@@ -1,99 +1,99 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import ReportFilters from '../components/ReportFilters.vue'
-import ReportPreviewPanel from '../components/ReportPreviewPanel.vue'
-import { reportsMock } from '../data/reportsMock'
-import type { ReportFormatFilter, ReportRecord, ReportStatusFilter } from '../types/reports'
+import { computed, onMounted, ref } from 'vue'
+import {
+  fetchScanHistory,
+  readableHistoryApiError,
+  type ScanHistoryRecord,
+} from '../services/historyApi'
 
-const formatFilter = ref<ReportFormatFilter>('All')
-const statusFilter = ref<ReportStatusFilter>('All')
+const records = ref<ScanHistoryRecord[]>([])
+const loading = ref(true)
+const error = ref('')
 const query = ref('')
-const selectedReport = ref<ReportRecord | null>(null)
 
-const stats = [
-  {
-    label: 'Local Reports',
-    value: reportsMock.length,
-    helper: '全部为 Demo Data',
-    tone: 'total',
-  },
-  {
-    label: 'Markdown',
-    value: reportsMock.filter((report) => report.format === 'Markdown').length,
-    helper: '本地 Markdown 预览',
-    tone: 'markdown',
-  },
-  {
-    label: 'JSON',
-    value: reportsMock.filter((report) => report.format === 'JSON').length,
-    helper: '兼容扫描结果结构',
-    tone: 'json',
-  },
-  {
-    label: 'Demo Findings',
-    value: reportsMock.reduce((total, report) => total + report.findings, 0),
-    helper: '非真实扫描历史',
-    tone: 'findings',
-  },
-]
+const stats = computed(() => {
+  const totalScans = records.value.length
+  const totalFindings = records.value.reduce((sum, record) => sum + record.finding_count, 0)
+  const languages = new Set(records.value.map((record) => record.language)).size
+  const totalRules = records.value.reduce((sum, record) => sum + record.rule_count, 0)
+  return [
+    {
+      label: 'Total Scans',
+      value: totalScans,
+      helper: '真实扫描历史记录',
+      tone: 'total',
+    },
+    {
+      label: 'Findings',
+      value: totalFindings,
+      helper: '累计漏洞数量',
+      tone: 'findings',
+    },
+    {
+      label: 'Languages',
+      value: languages,
+      helper: '覆盖语言种类',
+      tone: 'markdown',
+    },
+    {
+      label: 'Rules Used',
+      value: totalRules,
+      helper: '累计使用规则次数',
+      tone: 'json',
+    },
+  ]
+})
 
-const filteredReports = computed(() => {
+const filteredRecords = computed(() => {
   const keyword = query.value.trim().toLocaleLowerCase()
-
-  return reportsMock.filter((report) => {
-    const matchesFormat = formatFilter.value === 'All' || report.format === formatFilter.value
-    const matchesStatus = statusFilter.value === 'All' || report.status === statusFilter.value
-    const matchesKeyword = keyword.length === 0
-      || [report.name, report.scanTarget].some((value) => value.toLocaleLowerCase().includes(keyword))
-
-    return matchesFormat && matchesStatus && matchesKeyword
-  })
+  if (keyword.length === 0) {
+    return records.value
+  }
+  return records.value.filter((record) =>
+    [record.filename, record.language, record.rule_id ?? ''].some((value) =>
+      value.toLocaleLowerCase().includes(keyword),
+    ),
+  )
 })
 
 function resetFilters(): void {
-  formatFilter.value = 'All'
-  statusFilter.value = 'All'
   query.value = ''
 }
 
-function openPreview(report: ReportRecord): void {
-  selectedReport.value = report
+async function loadHistory(): Promise<void> {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await fetchScanHistory()
+    records.value = response.history
+  } catch (err) {
+    error.value = readableHistoryApiError(err)
+  } finally {
+    loading.value = false
+  }
 }
 
-function closePreview(): void {
-  selectedReport.value = null
-}
+onMounted(loadHistory)
 </script>
 
 <template>
   <section class="reports-view" aria-labelledby="reports-title">
     <header class="view-intro">
       <div>
-        <span class="view-eyebrow">Local report center</span>
-        <h1 id="reports-title">安全报告中心</h1>
-        <p>浏览本地示例报告，并预览或导出 Markdown 与 JSON 文件。</p>
+        <span class="view-eyebrow">Scan history center</span>
+        <h1 id="reports-title">扫描历史中心</h1>
+        <p>浏览后端保存的真实扫描历史记录。</p>
       </div>
       <div class="preview-state">
         <span class="state-dot" aria-hidden="true"></span>
         <div>
           <span>数据模式</span>
-          <strong>Demo Data</strong>
+          <strong>Real History</strong>
         </div>
       </div>
     </header>
 
-    <aside class="scope-notice" aria-label="报告中心数据说明">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 10v6m0-9h.01" />
-      </svg>
-      <div>
-        <strong>当前页面是 Local Preview，仅使用前端 Demo Data。</strong>
-        <p>后端尚未提供报告历史、持久化或下载 API；下载文件由浏览器根据当前示例数据即时生成。</p>
-      </div>
-    </aside>
-
-    <div class="stats-grid" aria-label="本地报告统计">
+    <div class="stats-grid" aria-label="扫描历史统计">
       <article v-for="stat in stats" :key="stat.label" class="stat-card" :class="`tone-${stat.tone}`">
         <div>
           <span>{{ stat.label }}</span>
@@ -104,75 +104,84 @@ function closePreview(): void {
       </article>
     </div>
 
-    <ReportFilters
-      :format="formatFilter"
-      :status="statusFilter"
-      :query="query"
-      :result-count="filteredReports.length"
-      @update:format="formatFilter = $event"
-      @update:status="statusFilter = $event"
-      @update:query="query = $event"
-      @reset="resetFilters"
-    />
+    <section class="filters-card" aria-label="扫描历史筛选">
+      <div class="filter-field search-field">
+        <label for="history-search">关键词搜索</label>
+        <div class="search-control">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m16 16 4 4" />
+          </svg>
+          <input
+            id="history-search"
+            v-model="query"
+            type="search"
+            placeholder="文件名、语言或规则"
+          >
+        </div>
+      </div>
+      <div class="filter-summary">
+        <span>{{ filteredRecords.length }} records</span>
+        <button type="button" @click="resetFilters">重置筛选</button>
+      </div>
+    </section>
 
-    <section class="reports-table-card" aria-label="本地报告列表">
+    <section class="reports-table-card" aria-label="扫描历史列表">
       <div class="table-heading">
         <div>
-          <span class="section-kicker">Demo report history</span>
-          <h2>本地报告记录</h2>
+          <span class="section-kicker">Real scan history</span>
+          <h2>扫描历史记录</h2>
         </div>
-        <span>点击报告查看 Local Preview</span>
+        <span>按时间倒序排列</span>
       </div>
 
-      <div v-if="filteredReports.length" class="table-wrap">
+      <div v-if="loading" class="state-block">
+        <strong>正在加载扫描历史…</strong>
+        <p>正在从后端读取真实扫描记录。</p>
+      </div>
+
+      <div v-else-if="error" class="state-block error-state">
+        <strong>无法加载扫描历史</strong>
+        <p>{{ error }}</p>
+        <button type="button" @click="loadHistory">重试</button>
+      </div>
+
+      <div v-else-if="filteredRecords.length" class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Report Name</th>
-              <th>Scan Target</th>
-              <th>Format</th>
-              <th>Findings</th>
-              <th>Critical / High</th>
-              <th>Generated At</th>
-              <th>Status</th>
-              <th>Source</th>
+              <th>文件名</th>
+              <th>语言</th>
+              <th>扫描模式</th>
+              <th>使用规则</th>
+              <th>漏洞数量</th>
+              <th>状态</th>
+              <th>扫描时间</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="report in filteredReports"
-              :key="report.id"
-              tabindex="0"
-              @click="openPreview(report)"
-              @keydown.enter="openPreview(report)"
-            >
-              <td class="report-name">{{ report.name }}</td>
-              <td class="target">{{ report.scanTarget }}</td>
-              <td><span class="format-tag" :class="`format-${report.format.toLowerCase()}`">{{ report.format }}</span></td>
-              <td class="finding-count">{{ report.findings }}</td>
-              <td>
-                <div class="risk-counts">
-                  <span class="critical-count">{{ report.critical }}</span>
-                  <span aria-hidden="true">/</span>
-                  <span class="high-count">{{ report.high }}</span>
-                </div>
+            <tr v-for="record in filteredRecords" :key="record.id">
+              <td class="report-name">{{ record.filename }}</td>
+              <td><span class="lang-tag">{{ record.language }}</span></td>
+              <td class="mode-cell">{{ record.scan_mode }}</td>
+              <td class="rule-cell">
+                <span v-if="record.rule_id">{{ record.rule_id }}</span>
+                <span v-else class="muted">全部规则（{{ record.rule_count }}）</span>
               </td>
-              <td class="generated-at">{{ report.generatedAt }}</td>
-              <td><span class="status-tag" :class="`status-${report.status.toLowerCase()}`">{{ report.status }}</span></td>
-              <td><span class="demo-tag">{{ report.sourceLabel }}</span></td>
+              <td class="finding-count">{{ record.finding_count }}</td>
+              <td><span class="status-tag" :class="`status-${record.status.toLowerCase()}`">{{ record.status }}</span></td>
+              <td class="generated-at">{{ record.created_at }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div v-else class="empty-state">
-        <strong>没有匹配的本地报告</strong>
-        <p>调整格式、状态或关键词条件后重试。</p>
-        <button type="button" @click="resetFilters">清除筛选</button>
+        <strong>没有扫描历史记录</strong>
+        <p>完成一次扫描后，记录会显示在这里。</p>
+        <button v-if="query" type="button" @click="resetFilters">清除筛选</button>
       </div>
     </section>
-
-    <ReportPreviewPanel v-if="selectedReport" :report="selectedReport" @close="closePreview" />
   </section>
 </template>
 
@@ -224,7 +233,7 @@ function closePreview(): void {
 .state-dot {
   width: 9px;
   height: 9px;
-  background: #b59747;
+  background: #3f725c;
   border-radius: 50%;
 }
 
@@ -241,39 +250,8 @@ function closePreview(): void {
 }
 
 .preview-state strong {
-  color: #725f2a;
+  color: #3f725c;
   font-family: var(--mono-font);
-  font-size: 11px;
-}
-
-.scope-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 13px;
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  background: #f8f4e7;
-  border: 1px solid #e9dfbd;
-  border-radius: 10px;
-}
-
-.scope-notice svg {
-  width: 19px;
-  flex: 0 0 19px;
-  fill: none;
-  stroke: #8b773c;
-  stroke-linecap: round;
-  stroke-width: 1.6;
-}
-
-.scope-notice strong {
-  color: #6e5c29;
-  font-size: 12px;
-}
-
-.scope-notice p {
-  margin: 5px 0 0;
-  color: #7d7353;
   font-size: 11px;
 }
 
@@ -327,6 +305,89 @@ function closePreview(): void {
   font-size: 10px;
 }
 
+.filters-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 13px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+}
+
+.filter-field {
+  display: grid;
+  gap: 7px;
+}
+
+label {
+  color: #68798d;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+input {
+  width: 100%;
+  height: 40px;
+  color: #33485f;
+  background: #fbfcfd;
+  border: 1px solid #dbe3eb;
+  border-radius: 8px;
+  outline: none;
+  padding: 0 12px 0 36px;
+}
+
+input:focus {
+  border-color: #8ea5bd;
+  box-shadow: 0 0 0 3px #eef3f7;
+}
+
+input::placeholder {
+  color: #9aa6b4;
+}
+
+.search-control {
+  position: relative;
+}
+
+.search-control svg {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 16px;
+  fill: none;
+  stroke: #8493a4;
+  stroke-linecap: round;
+  stroke-width: 1.7;
+}
+
+.filter-summary {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 11px;
+  white-space: nowrap;
+}
+
+.filter-summary span {
+  color: #748397;
+  font-size: 11px;
+}
+
+.filter-summary button {
+  padding: 8px 10px;
+  color: #526d8a;
+  background: #edf2f7;
+  border: 1px solid #dce5ed;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
 .reports-table-card {
   min-width: 0;
   margin-top: 18px;
@@ -362,7 +423,7 @@ function closePreview(): void {
 
 table {
   width: 100%;
-  min-width: 1120px;
+  min-width: 900px;
   border-collapse: collapse;
 }
 
@@ -387,18 +448,8 @@ td {
   font-size: 11px;
 }
 
-tbody tr {
-  cursor: pointer;
-  outline: none;
-}
-
-tbody tr:hover,
-tbody tr:focus-visible {
+tbody tr:hover {
   background: #f7fafc;
-}
-
-tbody tr:focus-visible {
-  box-shadow: inset 3px 0 0 #6f89a6;
 }
 
 .report-name {
@@ -406,22 +457,13 @@ tbody tr:focus-visible {
   font-weight: 700;
 }
 
-.target,
 .generated-at {
   color: #64768a;
   font-family: var(--mono-font);
 }
 
-.target {
-  max-width: 250px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.format-tag,
-.status-tag,
-.demo-tag {
+.lang-tag,
+.status-tag {
   display: inline-flex;
   padding: 4px 7px;
   font-size: 9px;
@@ -429,30 +471,37 @@ tbody tr:focus-visible {
   border-radius: 5px;
 }
 
-.format-markdown {
+.lang-tag {
   color: #4f6b88;
   background: #eaf0f5;
 }
 
-.format-json {
-  color: #4c7564;
-  background: #e8f1ed;
-}
-
-.status-ready {
+.status-success {
   color: #3f725c;
   background: #e5f0eb;
 }
 
-.status-draft {
-  color: #846b20;
-  background: #f8f1d9;
+.status-failed {
+  color: #a83b46;
+  background: #f6e7e9;
 }
 
-.demo-tag {
-  color: #6d6031;
-  background: #f8f1d9;
-  border: 1px solid #eadca9;
+.mode-cell {
+  font-family: var(--mono-font);
+  color: #64768a;
+}
+
+.rule-cell {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono-font);
+  color: #64768a;
+}
+
+.rule-cell .muted {
+  color: #9aa6b4;
 }
 
 .finding-count {
@@ -460,16 +509,37 @@ tbody tr:focus-visible {
   font-weight: 750;
 }
 
-.risk-counts {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--mono-font);
-  font-weight: 750;
+.state-block {
+  display: grid;
+  justify-items: center;
+  padding: 56px 20px;
+  text-align: center;
+  border-top: 1px solid #edf0f4;
 }
 
-.critical-count { color: #a83b46; }
-.high-count { color: #ad612f; }
+.state-block strong {
+  color: #40566d;
+  font-size: 13px;
+}
+
+.state-block p {
+  margin: 7px 0 15px;
+  color: #8190a1;
+  font-size: 11px;
+}
+
+.state-block button {
+  padding: 8px 11px;
+  color: #526d8a;
+  background: #edf2f7;
+  border: 1px solid #dce5ed;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.error-state strong {
+  color: #a83b46;
+}
 
 .empty-state {
   display: grid;
@@ -522,6 +592,14 @@ tbody tr:focus-visible {
   .table-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .filters-card {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-summary {
+    justify-content: space-between;
   }
 }
 

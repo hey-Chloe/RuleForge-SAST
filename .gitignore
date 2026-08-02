@@ -12,6 +12,10 @@ venv/
 reports/*.json
 reports/*.md
 
+# Scan history database
+backend/database/scans.db
+
+
 # Node
 node_modules/
 dist/

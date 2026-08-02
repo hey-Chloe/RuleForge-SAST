@@ -19,6 +19,9 @@ from services.rule_catalog import (
 from services.ai_explainer import AIInputError, explain_vulnerability
 from services.deepseek_client import AIConfigurationError, AIUpstreamError
 
+from database.scan_history import list_scan_history, save_scan_record
+
+
 
 app = FastAPI()
 BACKEND_DIRECTORY = Path(__file__).resolve().parent
@@ -184,7 +187,29 @@ async def scan_code(
             "rule_id": resolved_rules[0][0]["id"] if resolved_rules else "",
             "source_file": resolved_rules[0][0]["source_file"] if resolved_rules else "",
         }
+
+    # 扫描成功后保存一条真实历史记录。即使 finding_count 为 0 也会保存。
+    # 仅记录元数据，不保存上传文件内容、临时文件路径或 scan_xxx 临时文件名。
+    selected_rule_id = (
+        resolved_rules[0][0]["id"] if mode == "single" and resolved_rules else None
+    )
+    save_scan_record(
+        filename=original_name,
+        language=language,
+        scan_mode=mode,
+        rule_id=selected_rule_id,
+        rule_count=len(resolved_rules),
+        finding_count=len(result.get("vulnerabilities", [])),
+        status="success",
+    )
     return result
+
+
+@app.get("/history")
+def get_scan_history():
+    """按时间倒序返回真实扫描历史记录。"""
+    return {"history": list_scan_history()}
+
 
 
 
