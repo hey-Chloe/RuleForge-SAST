@@ -18,8 +18,19 @@ from services.rule_catalog import (
 
 from services.ai_explainer import AIInputError, explain_vulnerability
 from services.deepseek_client import AIConfigurationError, AIUpstreamError
+from services.ai_suggest import (
+    AIBudgetError,
+    AIInputError as AISuggestInputError,
+    AIQuotaError,
+    suggest_fix,
+)
+from services.openrouter_client import (
+    AIConfigurationError as AIOpenRouterConfigError,
+    AIUpstreamError as AIOpenRouterUpstreamError,
+)
 
 from database.scan_history import list_scan_history, save_scan_record
+
 
 
 
@@ -62,8 +73,32 @@ async def explain_vulnerability_with_ai(payload: dict[str, object]):
         raise HTTPException(status_code=502, detail=str(exc)) from None
 
 
+@app.post("/ai/suggest-fix")
+async def suggest_fix_with_ai(payload: dict[str, object]):
+    """生成 AI 漏洞解释与修复建议。
+
+    仅当用户手动点击时调用；命中缓存不扣请求次数；超出额度/预算返回 429。
+    """
+    try:
+        return await suggest_fix(payload)
+    except AISuggestInputError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except AIQuotaError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
+    except AIBudgetError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from None
+    except AIOpenRouterConfigError:
+        raise HTTPException(
+            status_code=503,
+            detail="AI suggestion service is not configured",
+        ) from None
+    except AIOpenRouterUpstreamError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+
+
 
 # 解决 Vue(localhost:5173)
+
 # 请求 FastAPI(127.0.0.1:8000) 的跨域问题
 
 app.add_middleware(
