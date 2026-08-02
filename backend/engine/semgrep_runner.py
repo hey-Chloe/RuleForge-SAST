@@ -66,6 +66,23 @@ def scan(code_path, rule_path):
         if not isinstance(extra, dict):
             extra = {}
 
+        # 优先读取 extra.lines（Semgrep 命中的代码片段），
+        # 缺失时回退到 extra.fixed_lines；两者都不存在时返回空字符串。
+        # 注意：不使用 extra.message，因为 message 是漏洞描述而非源代码。
+        code_snippet = ""
+        lines = extra.get("lines")
+        if isinstance(lines, str) and lines.strip():
+            code_snippet = lines.strip()
+        elif isinstance(lines, list):
+            code_snippet = "\n".join(
+                str(line) for line in lines if isinstance(line, str) and line.strip()
+            ).strip()
+        if not code_snippet:
+            fixed_lines = extra.get("fixed_lines")
+            if isinstance(fixed_lines, str) and fixed_lines.strip():
+                code_snippet = fixed_lines.strip()
+
+
         vulnerabilities.append(Vulnerability(
 
             # 规则名称
@@ -90,7 +107,10 @@ def scan(code_path, rule_path):
             fix=metadata["fix"],
 
             # 漏洞信息
-            message=extra.get("message", "")
+            message=extra.get("message", ""),
+
+            # 命中的代码片段
+            code_snippet=code_snippet,
         ))
 
 

@@ -83,7 +83,102 @@ class SemgrepRunnerTests(unittest.TestCase):
         self.assertIn("不安全反序列化漏洞", encoded)
 
     @patch("backend.engine.semgrep_runner.subprocess.run")
+    def test_scan_extracts_code_snippet_from_lines(self, run):
+        semgrep_output = {
+            "results": [
+                {
+                    "check_id": "php-dangerous-eval",
+                    "path": os.path.join("src", "vulnerable.php"),
+                    "start": {"line": 3},
+                    "extra": {
+                        "message": "Dangerous eval usage",
+                        "lines": "eval($input);",
+                    },
+                },
+                {
+                    "check_id": "php-dangerous-unserialize",
+                    "path": os.path.join("src", "vulnerable.php"),
+                    "start": {"line": 7},
+                    "extra": {
+                        "message": "Dangerous unserialize usage",
+                        "lines": ["$user = unserialize(", "    $_GET['cmd'],", ");"],
+                    },
+                },
+            ]
+        }
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(semgrep_output, ensure_ascii=False),
+            stderr="",
+        )
+
+        result = scan("source", "rules.yml")
+
+        self.assertEqual(
+            result["vulnerabilities"][0]["code_snippet"],
+            "eval($input);",
+        )
+        self.assertEqual(
+            result["vulnerabilities"][1]["code_snippet"],
+            "$user = unserialize(\n    $_GET['cmd'],\n);",
+        )
+
+    @patch("backend.engine.semgrep_runner.subprocess.run")
+    def test_scan_falls_back_to_fixed_lines_for_code_snippet(self, run):
+        semgrep_output = {
+            "results": [
+                {
+                    "check_id": "php-dangerous-unserialize",
+                    "path": os.path.join("src", "vulnerable.php"),
+                    "start": {"line": 7},
+                    "extra": {
+                        "message": "Dangerous unserialize usage",
+                        "fixed_lines": "unserialize($input, ['allowed_classes' => false]);",
+                    },
+                },
+            ]
+        }
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(semgrep_output, ensure_ascii=False),
+            stderr="",
+        )
+
+        result = scan("source", "rules.yml")
+
+        self.assertEqual(
+            result["vulnerabilities"][0]["code_snippet"],
+            "unserialize($input, ['allowed_classes' => false]);",
+        )
+
+    @patch("backend.engine.semgrep_runner.subprocess.run")
+    def test_scan_returns_empty_code_snippet_without_lines(self, run):
+        # 没有 lines 和 fixed_lines 时返回空字符串，且不使用 message 作为代码片段。
+        semgrep_output = {
+            "results": [
+                {
+                    "check_id": "php-dangerous-eval",
+                    "path": os.path.join("src", "vulnerable.php"),
+                    "start": {"line": 3},
+                    "extra": {
+                        "message": "Dangerous eval usage",
+                    },
+                },
+            ]
+        }
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(semgrep_output, ensure_ascii=False),
+            stderr="",
+        )
+
+        result = scan("source", "rules.yml")
+
+        self.assertEqual(result["vulnerabilities"][0]["code_snippet"], "")
+
+    @patch("backend.engine.semgrep_runner.subprocess.run")
     def test_scan_sets_python_utf8_when_not_configured(self, run):
+
         run.return_value = SimpleNamespace(returncode=0, stdout='{"results": []}', stderr="")
 
         with patch.dict(os.environ, {}, clear=True):

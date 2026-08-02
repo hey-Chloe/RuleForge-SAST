@@ -159,9 +159,11 @@ function normalizeFinding(value: unknown, index: number, sourceFile: string): Vu
     status: 'Open',
     description,
     fixes: normalizeFixes(finding.fix),
+    codeSnippet: safeString(finding.code_snippet, '暂无代码片段'),
     patchStatus: 'PENDING',
   }
 }
+
 
 function normalizeResponse(value: unknown, sourceFile: string): VulnerabilityRecord[] {
   if (!isRecord(value) || !Array.isArray(value.vulnerabilities)) return []
