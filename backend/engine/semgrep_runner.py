@@ -16,18 +16,18 @@ def scan(code_path, rule_path):
     调用 Semgrep 扫描代码
 
     :param code_path: 待扫描代码路径
-    :param rule_path: Semgrep规则路径
+    :param rule_path: Semgrep规则路径，可以是单个路径字符串或路径列表
     :return: 漏洞结果JSON
     """
 
-    command = [
-        "semgrep",
-        "scan",
-        "--config",
-        rule_path,
-        code_path,
-        "--json"
-    ]
+    # 支持单个规则路径或规则路径列表，一次 Semgrep 命令加载全部规则。
+    rule_paths = [rule_path] if isinstance(rule_path, (str, os.PathLike)) else list(rule_path)
+
+    command = ["semgrep", "scan"]
+    for path in rule_paths:
+        command.extend(["--config", str(path)])
+    command.extend([code_path, "--json"])
+
 
     environment = os.environ.copy()
     environment.setdefault("PYTHONUTF8", "1")
