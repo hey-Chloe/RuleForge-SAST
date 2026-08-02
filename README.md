@@ -1,52 +1,13 @@
-## 基于 Semgrep 与大语言模型的多语言静态应用安全分析平台。
+## RuleForge-SAST：基于 Semgrep 与大语言模型的多语言静态应用安全分析平台。
 
 RuleForge-SAST 支持 PHP、Python 和 Java 源码扫描，能够自动识别代码语言、执行匹配的安全规则、展示漏洞详情，并结合 AI 生成修复建议，再通过 Semgrep 对修改后的代码进行二次验证。
 
 ## 核心功能
-
-- 自动识别 PHP、Python、Java 源文件
-- 按语言加载全部适用的 Semgrep 规则
-- 支持全规则扫描和指定规则扫描
-- 展示 CWE、风险等级、代码片段和修复建议
-- 保存真实扫描历史
-- 生成限额控制的 AI 漏洞解释与修复建议
-- 对修复前后代码执行 Semgrep 验证
-- 输出 FIXED、NOT_FIXED、NO_VULNERABILITY 状态
-
-## 技术架构
-
-- Frontend: Vue 3 + TypeScript + Vite
-- Backend: FastAPI
-- SAST Engine: Semgrep
-- Database: SQLite
-- AI Provider: OpenRouter / DeepSeek
-- Tests: unittest
-
-## 工作流程
-
-源码上传
-→ 自动识别语言
-→ 加载对应规则
-→ Semgrep 扫描
-→ 漏洞详情
-→ AI 修复建议
-→ Patch 二次验证
-→ 保存扫描历史
-
-## 项目结构
-
-```text
-RuleForge-SAST/
-├── backend/
-│   ├── analyzer/       # Patch 分析与修复验证
-│   ├── database/       # SQLite 持久化
-│   ├── engine/         # Semgrep 执行封装
-│   ├── frontend/       # Vue 3 前端
-│   ├── services/       # 规则目录与 AI 服务
-│   └── api.py          # FastAPI 接口
-├── rules/              # Semgrep YAML 规则
-└── testcase/           # 测试样例
-```
+多语言代码扫描：支持 PHP、Python 和 Java，自动识别文件语言并匹配对应的 Semgrep 规则，可进行全规则或指定规则扫描。
+漏洞结果分析：展示漏洞等级、CWE、文件位置、相关代码片段、风险说明和修复建议。
+扫描历史管理：保存真实扫描记录，便于回顾扫描结果和问题变化。
+AI 辅助修复：对扫描结果进行通俗解释，并生成针对性的代码修复建议。
+修复效果验证：重新扫描修复后的代码，对比修复前后结果，判断漏洞是否已经消除。
 
 ## 快速开始
 
@@ -160,7 +121,38 @@ AI_REQUEST_TIMEOUT_SECONDS=30
 
 
 ---
+## 在线演示
 
+🎬 [点击观看 RuleForge-SAST 一分钟项目演示](https://www.bilibili.com/video/BV1YC3Z6EEJC/)
+
+视频展示：
+
+- PHP、Python、Java 自动识别
+- Semgrep 全规则扫描
+- 漏洞详情与代码片段
+- AI 漏洞解释与修复建议
+- Patch 修复验证
+- 真实扫描历史
+
+## 项目截图
+
+### 多语言代码扫描
+
+<img width="2582" height="1224" alt="image" src="https://github.com/user-attachments/assets/fafe9000-ea7e-494a-883d-27e7e55e91fd" />
+
+
+### 漏洞详情
+
+<img width="2590" height="1236" alt="image" src="https://github.com/user-attachments/assets/fb71e2e5-4e6e-4f2a-9215-30f774a5cd5f" />
+
+### AI 修复建议
+
+<img width="862" height="722" alt="image" src="https://github.com/user-attachments/assets/11929f30-7bad-40f5-a2db-f01c9484589b" />
+
+
+
+
+---
 ## 演示流程
 
 推荐使用测试文件：
@@ -246,38 +238,7 @@ http://127.0.0.1:8000/docs
 - SQLite 数据库文件不会提交到 Git 仓库。
 
 ---
-## 在线演示
 
-🎬 [点击观看 RuleForge-SAST 一分钟项目演示](https://www.bilibili.com/video/BV1YC3Z6EEJC/)
-
-视频展示：
-
-- PHP、Python、Java 自动识别
-- Semgrep 全规则扫描
-- 漏洞详情与代码片段
-- AI 漏洞解释与修复建议
-- Patch 修复验证
-- 真实扫描历史
-
-## 项目截图
-
-### 多语言代码扫描
-
-<img width="2582" height="1224" alt="image" src="https://github.com/user-attachments/assets/fafe9000-ea7e-494a-883d-27e7e55e91fd" />
-
-
-### 漏洞详情
-
-<img width="2590" height="1236" alt="image" src="https://github.com/user-attachments/assets/fb71e2e5-4e6e-4f2a-9215-30f774a5cd5f" />
-
-### AI 修复建议
-
-<img width="862" height="722" alt="image" src="https://github.com/user-attachments/assets/11929f30-7bad-40f5-a2db-f01c9484589b" />
-
-
-
-
----
 
 
 ## 免责声明
