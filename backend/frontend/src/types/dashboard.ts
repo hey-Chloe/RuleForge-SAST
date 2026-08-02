@@ -63,5 +63,7 @@ export interface VulnerabilityRecord {
   status: FindingStatus
   description: string
   fixes: string[]
+  codeSnippet: string
   patchStatus: PatchVerificationStatus
 }
+

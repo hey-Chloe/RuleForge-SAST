@@ -98,6 +98,21 @@ def load_rule_catalog() -> list[dict[str, Any]]:
     return catalog
 
 
+def _resolve_rule_path(rule: dict[str, Any]) -> Path:
+    """Resolve a catalog rule to a trusted file within the local rules directory."""
+    try:
+        rules_root = RULES_DIRECTORY.resolve(strict=True)
+        rule_path = (rules_root / rule["source_file"]).resolve(strict=True)
+        rule_path.relative_to(rules_root)
+    except (OSError, ValueError) as exc:
+        raise RuleCatalogError("Selected rule file is unavailable") from exc
+
+    if not rule_path.is_file() or rule_path.suffix.lower() not in {".yaml", ".yml"}:
+        raise RuleCatalogError("Selected rule file is invalid")
+
+    return rule_path
+
+
 def resolve_rule_for_language(
     rule_id: str,
     required_language: str,
@@ -122,14 +137,32 @@ def resolve_rule_for_language(
             f"Rule {requested_id} does not support {required_language.upper()} scans"
         )
 
-    try:
-        rules_root = RULES_DIRECTORY.resolve(strict=True)
-        rule_path = (rules_root / rule["source_file"]).resolve(strict=True)
-        rule_path.relative_to(rules_root)
-    except (OSError, ValueError) as exc:
-        raise RuleCatalogError("Selected rule file is unavailable") from exc
+    return rule, _resolve_rule_path(rule)
 
-    if not rule_path.is_file() or rule_path.suffix.lower() not in {".yaml", ".yml"}:
-        raise RuleCatalogError("Selected rule file is invalid")
 
-    return rule, rule_path
+def resolve_rules_for_language(
+    required_language: str,
+) -> list[tuple[dict[str, Any], Path]]:
+    """Resolve every catalog rule that supports the given language.
+
+    Returns a list of (rule, rule_path) tuples. Raises RuleSelectionError when
+    no rule in the catalog supports the language.
+    """
+    normalized_language = required_language.strip().lower()
+    resolved: list[tuple[dict[str, Any], Path]] = []
+    for rule in load_rule_catalog():
+        supported_languages = {
+            language.strip().lower()
+            for language in rule["languages"]
+            if isinstance(language, str)
+        }
+        if normalized_language in supported_languages:
+            resolved.append((rule, _resolve_rule_path(rule)))
+
+    if not resolved:
+        raise RuleSelectionError(
+            f"No rules available for {required_language.upper()} scans"
+        )
+
+    return resolved
+

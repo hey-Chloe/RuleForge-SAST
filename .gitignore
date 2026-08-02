@@ -12,6 +12,10 @@ venv/
 reports/*.json
 reports/*.md
 
+# Scan history database
+backend/database/scans.db
+
+
 # Node
 node_modules/
 dist/
@@ -27,3 +31,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+__pycache__/
+*.py[cod]
